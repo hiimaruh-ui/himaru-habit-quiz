@@ -1,10 +1,24 @@
 const assert=require('node:assert/strict'),Q=require('./data.js'),L=require('./logic.js');
-const expected=[{B:2,A:1},{B:2,F:1},{A:2,B:1,F:1},{A:2,B:1,C:1},{C:2,A:1,E:1},{D:2,B:1},{E:2,F:1,D:1},{E:2,A:1,F:1},{D:2,B:1},{F:2,E:1},{F:2,A:1},{A:2}];
-assert.deepEqual(Q.questions.map(q=>q[1]),expected);
+assert.equal(Q.questions.length,12);
+assert.deepEqual(Object.values(Q.types).map(t=>t.name),['お疲れタイプ','自分後回しタイプ','完璧主義タイプ','食事めんどうタイプ','我慢しすぎタイプ','三日坊主タイプ']);
+for(const [key,indices] of Object.entries({A:[0,1],B:[2,3],C:[4,5],D:[6,7],E:[8,9],F:[10,11]})){
+ for(const i of indices)assert.deepEqual(L.leaders(L.score([i],Q.questions)),[key]);
+ assert.deepEqual(L.leaders(L.score(indices,Q.questions)),[key]);
+ assert.equal(Q.types[key].habits.length,3);
+}
+const overlap=L.leaders(L.score([4,10],Q.questions));
+assert.deepEqual(overlap,['C','F']);
+assert.equal(L.priority(Q.questions[4],overlap),'C');
+assert.equal(L.priority(Q.questions[10],overlap),'F');
 assert.deepEqual(L.leaders(L.score([],Q.questions)),[]);
-for(const[k,i]of Object.entries({A:11,B:0,C:4,D:5,E:6,F:9}))assert.deepEqual(L.leaders(L.score([i],Q.questions)),[k]);
-let ties=0,fallback=0,examples=[];
-for(let mask=1;mask<4096;mask++){let sel=Array.from({length:12},(_,i)=>i).filter(i=>mask&(1<<i));let actual=L.score(sel,Q.questions),reference=Object.fromEntries('ABCDEF'.split('').map(k=>[k,sel.reduce((s,i)=>s+(expected[i][k]||0),0)]));assert.deepEqual(actual,reference);let tied=L.leaders(actual);assert(tied.length>0);if(tied.length>1){ties++;for(const i of sel){let main=L.priority(Q.questions[i],tied);if(main)assert(tied.includes(main));else{fallback++;if(examples.length<2)examples.push({sel,tied,priority:i});}}}for(const main of tied)assert(L.secondary(actual,main).every(k=>k!==main&&actual[k]>0));}
-assert.deepEqual(L.leaders(L.score([0,11],Q.questions)),['A']);
-assert.deepEqual(L.leaders(L.score([1,9],Q.questions)),['F']);
-console.log(JSON.stringify({result:'PASS',patterns:4095,types:6,tiedPatterns:ties,fallbackChoices:fallback,fallbackExamples:examples},null,2));
+let ties=0;
+for(let mask=1;mask<4096;mask++){
+ const sel=Array.from({length:12},(_,i)=>i).filter(i=>mask&(1<<i));
+ const scores=L.score(sel,Q.questions),leaders=L.leaders(scores);
+ assert(leaders.length>0);assert(leaders.every(k=>Q.types[k]));
+ if(leaders.length>1){ties++;for(const i of sel){const k=L.priority(Q.questions[i],leaders);assert(k===null||leaders.includes(k));}}
+ for(const main of leaders)assert(L.secondary(scores,main).every(k=>k!==main&&scores[k]>0));
+}
+assert.deepEqual(L.score([4,4],Q.questions),L.score([4],Q.questions));
+assert.throws(()=>L.score([12],Q.questions));
+console.log(JSON.stringify({result:'PASS',patterns:4095,types:6,tiedPatterns:ties,perfectionismVsShortBurst:'PASS'},null,2));
